@@ -1,3 +1,6 @@
+"use client";
+
+import { useMemo, useState } from "react";
 import PhoneCard from "../components/PhoneCard";
 import { applePhones, samsungPhones } from "../data/phones";
 
@@ -28,6 +31,70 @@ function subtitleSamsung(title: string): string {
 }
 
 export default function Home() {
+  // Build a unified catalogue with brand info
+  const allPhones = useMemo(
+    () => [
+      ...applePhones.map((p) => ({ ...p, brand: "Apple" as const })),
+      ...samsungPhones.map((p) => ({ ...p, brand: "Samsung" as const })),
+    ] as Array<ReturnType<typeof Object.assign> & { brand: "Apple" | "Samsung" }>,
+    []
+  );
+
+  const [search, setSearch] = useState("");
+  const [brand, setBrand] = useState<"All" | "Apple" | "Samsung">("All");
+  const [model, setModel] = useState<string>("All");
+  const [page, setPage] = useState(1);
+  const pageSize = 12;
+
+  // Helper: extract a model name without storage suffix
+  const modelFromTitle = (title: string) => title.replace(/\s*-?\s*(?:\d{2,4})\s?GB.*/i, "").trim();
+
+  // Available models based on selected brand
+  const modelOptions = useMemo(() => {
+    const pool = brand === "All" ? allPhones : allPhones.filter((p) => p.brand === brand);
+    const set = new Set<string>();
+    pool.forEach((p) => set.add(modelFromTitle(p.title)));
+    return ["All", ...Array.from(set).sort()];
+  }, [allPhones, brand]);
+
+  // Filter + search
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return allPhones.filter((p) => {
+      if (brand !== "All" && p.brand !== brand) return false;
+      if (model !== "All" && modelFromTitle(p.title) !== model) return false;
+      if (!q) return true;
+      return (
+        p.title.toLowerCase().includes(q) ||
+        p.price.toLowerCase().includes(q) ||
+        (p as any).brand.toLowerCase().includes(q)
+      );
+    });
+  }, [allPhones, brand, model, search]);
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paginated = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, currentPage]);
+
+  // Reset to first page when filters change
+  const onChangeBrand = (b: "All" | "Apple" | "Samsung") => {
+    setBrand(b);
+    setModel("All");
+    setPage(1);
+  };
+
+  const onChangeModel = (m: string) => {
+    setModel(m);
+    setPage(1);
+  };
+
+  const renderSubtitle = (title: string, b: "Apple" | "Samsung") =>
+    b === "Apple" ? subtitleApple(title) : subtitleSamsung(title);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <header className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white py-16 mb-12">
@@ -53,48 +120,109 @@ export default function Home() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 pb-16">
-        <section className="rounded-3xl p-8 mb-16 shadow-lg bg-gradient-to-br from-slate-50 to-slate-200">
-          <div className="flex items-center mb-8">
-            <div className="bg-gradient-to-r from-gray-800 to-gray-900 w-12 h-12 rounded-xl flex items-center justify-center mr-4">
-              <span className="text-white text-xl"></span>
+        {/* Controls */}
+        <section className="rounded-3xl p-6 mb-8 shadow-lg bg-white border border-slate-200">
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="md:col-span-2">
+              <label className="block text-sm text-slate-600 mb-1">Recherche</label>
+              <input
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="Rechercher par nom, marque ou prix..."
+                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
+              />
             </div>
             <div>
-              <h2 className="text-4xl font-bold text-gray-800 mb-1">Apple</h2>
-              <p className="text-gray-600">Pensez différemment</p>
+              <label className="block text-sm text-slate-600 mb-1">Marque</label>
+              <select
+                value={brand}
+                onChange={(e) => onChangeBrand(e.target.value as any)}
+                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="All">Toutes</option>
+                <option value="Apple">Apple</option>
+                <option value="Samsung">Samsung</option>
+              </select>
             </div>
-          </div>
-          <div className="h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent mb-8" />
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {applePhones.map((p) => (
-              <PhoneCard
-                key={p.title}
-                phone={{ ...p, subtitle: subtitleApple(p.title) }}
-              />
-            ))}
+            <div>
+              <label className="block text-sm text-slate-600 mb-1">Modèle</label>
+              <select
+                value={model}
+                onChange={(e) => onChangeModel(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                {modelOptions.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </section>
 
-        <section className="rounded-3xl p-8 mb-16 shadow-lg bg-gradient-to-br from-slate-50 to-slate-200">
-          <div className="flex items-center mb-8">
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 w-12 h-12 rounded-xl flex items-center justify-center mr-4">
-              <span className="text-white text-xl">🅂</span>
+        {/* Catalogue */}
+        <section className="rounded-3xl p-8 mb-8 shadow-lg bg-gradient-to-br from-slate-50 to-slate-200">
+          <div className="flex items-center mb-6">
+            <div className="bg-gradient-to-r from-gray-800 to-gray-900 w-10 h-10 rounded-xl flex items-center justify-center mr-3">
+              <span className="text-white text-lg">📦</span>
             </div>
             <div>
-              <h2 className="text-4xl font-bold text-gray-800 mb-1">Samsung</h2>
-              <p className="text-gray-600">Innovation et performance</p>
+              <h2 className="text-2xl font-bold text-gray-800 mb-0">Catalogue</h2>
+              <p className="text-gray-600 text-sm">{filtered.length} résultat(s){filtered.length > pageSize ? ` • page ${currentPage}/${totalPages}` : ""}</p>
             </div>
           </div>
-          <div className="h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent mb-8" />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {samsungPhones.map((p) => (
-              <PhoneCard
-                key={p.title}
-                phone={{ ...p, subtitle: subtitleSamsung(p.title) }}
-              />
-            ))}
-          </div>
+          {filtered.length === 0 ? (
+            <div className="text-center text-slate-500 py-12">Aucun résultat. Essayez d'autres filtres.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {paginated.map((p) => (
+                <PhoneCard key={`${p.brand}-${p.title}`} phone={{ ...p, subtitle: renderSubtitle(p.title, p.brand) }} />
+              ))}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-8 flex items-center justify-center gap-2">
+              <button
+                onClick={() => setPage((n) => Math.max(1, n - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-2 rounded-lg border border-slate-300 bg-white disabled:opacity-50"
+              >
+                Précédent
+              </button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).slice(
+                  Math.max(0, currentPage - 3),
+                  Math.max(0, currentPage - 3) + 5
+                ).map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setPage(n)}
+                    className={`px-3 py-2 rounded-lg border ${
+                      n === currentPage
+                        ? "bg-indigo-600 text-white border-indigo-600"
+                        : "bg-white border-slate-300"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setPage((n) => Math.min(totalPages, n + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-2 rounded-lg border border-slate-300 bg-white disabled:opacity-50"
+              >
+                Suivant
+              </button>
+            </div>
+          )}
         </section>
       </main>
 
