@@ -33,10 +33,11 @@ function subtitleSamsung(title: string): string {
 export default function Home() {
   // Build a unified catalogue with brand info
   const allPhones = useMemo(
-    () => [
-      ...applePhones.map((p) => ({ ...p, brand: "Apple" as const })),
-      ...samsungPhones.map((p) => ({ ...p, brand: "Samsung" as const })),
-    ] as Array<ReturnType<typeof Object.assign> & { brand: "Apple" | "Samsung" }>,
+    () =>
+      ([
+        ...applePhones.map((p) => ({ ...p, brand: "Apple" as const })),
+        ...samsungPhones.map((p) => ({ ...p, brand: "Samsung" as const })),
+      ]) as Array<import("../components/PhoneCard").Phone & { brand: "Apple" | "Samsung" }>,
     []
   );
 
@@ -67,7 +68,7 @@ export default function Home() {
       return (
         p.title.toLowerCase().includes(q) ||
         p.price.toLowerCase().includes(q) ||
-        (p as any).brand.toLowerCase().includes(q)
+        p.brand.toLowerCase().includes(q)
       );
     });
   }, [allPhones, brand, model, search]);
@@ -97,23 +98,30 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <header className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white py-16 mb-12">
-        <div className="max-w-7xl mx-auto px-6 text-center">
-          <div className="inline-block mb-4">
-            <span className="text-6xl">📱</span>
+      <header className="relative overflow-hidden text-white py-20 mb-12 bg-gradient-to-br from-indigo-600 via-indigo-500 to-purple-600">
+        <div aria-hidden className="pointer-events-none absolute inset-0">
+          <div className="absolute -top-32 -left-32 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
+          <div className="absolute -bottom-24 -right-24 h-72 w-72 rounded-full bg-fuchsia-400/20 blur-3xl" />
+          <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+        </div>
+        <div className="max-w-7xl mx-auto px-6 text-center relative">
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15 shadow-lg backdrop-blur mb-6">
+            <span className="text-3xl">📱</span>
           </div>
-          <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
-            Catalogue Telephone ( Iphones - Samsung) 2025
+          <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-4 bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent drop-shadow-sm">
+            Catalogue Téléphone (iPhone • Samsung) 2025
           </h1>
-          <p className="text-xl text-blue-100 max-w-2xl mx-auto">
+          <p className="text-lg md:text-xl text-indigo-100/90 max-w-2xl mx-auto">
             Découvrez notre sélection exclusive des meilleurs smartphones du marché
           </p>
-          <div className="mt-8 flex justify-center gap-4">
-            <div className="bg-white/10 backdrop-blur-sm rounded-full px-6 py-2">
-              <span className="text-sm font-medium">✨ Prix tout inclus</span>
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
+            <div className="flex items-center gap-2 rounded-full px-5 py-2 bg-white/10 ring-1 ring-white/15 backdrop-blur">
+              <span>✨</span>
+              <span className="text-sm font-medium">Prix tout inclus</span>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-full px-6 py-2">
-              <span className="text-sm font-medium">🚚 Livraison gratuite</span>
+            <div className="flex items-center gap-2 rounded-full px-5 py-2 bg-white/10 ring-1 ring-white/15 backdrop-blur">
+              <span>🚚</span>
+              <span className="text-sm font-medium">Livraison gratuite</span>
             </div>
           </div>
         </div>
@@ -139,7 +147,7 @@ export default function Home() {
               <label className="block text-sm text-slate-600 mb-1">Marque</label>
               <select
                 value={brand}
-                onChange={(e) => onChangeBrand(e.target.value as any)}
+                onChange={(e) => onChangeBrand(e.target.value as "All" | "Apple" | "Samsung")}
                 className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="All">Toutes</option>
@@ -165,7 +173,7 @@ export default function Home() {
         </section>
 
         {/* Catalogue */}
-        <section className="rounded-3xl p-8 mb-8 shadow-lg bg-gradient-to-br from-slate-50 to-slate-200">
+        <section id="catalogue" className="rounded-3xl p-8 mb-8 shadow-lg bg-gradient-to-br from-slate-50 to-slate-200">
           <div className="flex items-center mb-6">
             <div className="bg-gradient-to-r from-gray-800 to-gray-900 w-10 h-10 rounded-xl flex items-center justify-center mr-3">
               <span className="text-white text-lg">📦</span>
@@ -177,7 +185,7 @@ export default function Home() {
           </div>
 
           {filtered.length === 0 ? (
-            <div className="text-center text-slate-500 py-12">Aucun résultat. Essayez d'autres filtres.</div>
+            <div className="text-center text-slate-500 py-12">Aucun résultat. Essayez d&apos;autres filtres.</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {paginated.map((p) => (
