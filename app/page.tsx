@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import PhoneCard from "../components/PhoneCard";
 import { applePhones, samsungPhones } from "../data/phones";
 
@@ -31,8 +31,8 @@ function subtitleSamsung(title: string): string {
 }
 
 export default function Home() {
-  // Build a unified catalogue with brand info
-  const allPhones = useMemo(
+  // Local fallback catalogue with brand info
+  const fallbackPhones = useMemo(
     () =>
       ([
         ...applePhones.map((p) => ({ ...p, brand: "Apple" as const })),
@@ -40,6 +40,68 @@ export default function Home() {
       ]) as Array<import("../components/PhoneCard").Phone & { brand: "Apple" | "Samsung" }>,
     []
   );
+
+  const [allPhones, setAllPhones] = useState<
+    Array<import("../components/PhoneCard").Phone & { brand: "Apple" | "Samsung" }>
+  >(fallbackPhones);
+
+  // Attempt to fetch from Supabase if env vars are present (client-side)
+  useEffect(() => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !anon) return; // keep fallback
+
+    const controller = new AbortController();
+    const run = async () => {
+      try {
+        const res = await fetch(
+          `${url}/rest/v1/phones?select=title,brand,price,image_url`,
+          {
+            headers: {
+              apikey: anon,
+              Authorization: `Bearer ${anon}`,
+            },
+            signal: controller.signal,
+          }
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const rows: Array<{
+          title: string;
+          brand: "Apple" | "Samsung" | string;
+          price: number | string | null;
+          image_url: string | null;
+        }> = await res.json();
+
+        const fmt = (v: number | string | null) => {
+          const n = typeof v === "number" ? v : Number(String(v ?? "").trim());
+          if (!isFinite(n)) return "";
+          return `${n} $`;
+        };
+        const brandFallback = (b: string) =>
+          b.toLowerCase() === "apple"
+            ? "/assets/apple-iphone-15-1.jpg"
+            : "/assets/samsung-galaxy-s23-ultra-5g-1.jpg";
+
+        const mapped = rows
+          .filter((r) => r && r.title && r.brand)
+          .map((r) => ({
+            image: r.image_url && r.image_url.trim() ? r.image_url : brandFallback(r.brand),
+            title: r.title,
+            price: fmt(r.price),
+            brand: (r.brand === "Apple" || r.brand === "Samsung" ? r.brand : "Samsung") as
+              | "Apple"
+              | "Samsung",
+          }));
+
+        if (mapped.length) setAllPhones(mapped);
+      } catch (e) {
+        // silent fallback to local data
+        console.warn("Supabase fetch failed; using fallback data.");
+      }
+      return () => controller.abort();
+    };
+    run();
+  }, []);
 
   const [search, setSearch] = useState("");
   const [brand, setBrand] = useState<"All" | "Apple" | "Samsung">("All");
@@ -140,7 +202,7 @@ export default function Home() {
                   setPage(1);
                 }}
                 placeholder="Rechercher par nom, marque ou prix..."
-                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2 text-slate-900 placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
             <div>
@@ -148,7 +210,7 @@ export default function Home() {
               <select
                 value={brand}
                 onChange={(e) => onChangeBrand(e.target.value as "All" | "Apple" | "Samsung")}
-                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2 text-slate-900 placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="All">Toutes</option>
                 <option value="Apple">Apple</option>
@@ -160,7 +222,7 @@ export default function Home() {
               <select
                 value={model}
                 onChange={(e) => onChangeModel(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2 text-slate-900 placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 {modelOptions.map((m) => (
                   <option key={m} value={m}>
